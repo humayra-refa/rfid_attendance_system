@@ -8,7 +8,6 @@ A contactless, automated attendance management system built with ESP32, Firebase
 
 ## Hardware Prototype
 
-![Hardware Prototype](assets/hardware.jpg)
 
 *RC522 RFID module + ESP32 on veroboard with red/green LEDs and buzzer — fully soldered and compact.*
 
