@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — RFID Attendance System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app-layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-badge">
+        <div class="logo-icon">📡</div>
+        <div>
+          <div class="logo-text">RFID Attendance</div>
+          <div class="logo-sub">v1.0 · IoT System</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item active"><span class="icon">🏠</span> Dashboard</a>
+      <a href="attendance.html" class="nav-item"><span class="icon">📋</span> Attendance Records</a>
+      <a href="students.html" class="nav-item"><span class="icon">🎓</span> Students</a>
+      <div class="nav-section-label">Reports</div>
+      <a href="attendance.html" class="nav-item"><span class="icon">📊</span> Export CSV</a>
+      <a href="attendance.html" class="nav-item"><span class="icon">🔍</span> Search Records</a>
+      <div class="nav-section-label">System</div>
+      <a href="#" class="nav-item"><span class="icon">🔌</span> ESP32 Status</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="user-avatar" id="user-initials">?</div>
+        <div class="user-info">
+          <div class="user-name" id="user-email-display">Admin</div>
+          <div class="user-role">Administrator</div>
+        </div>
+        <button class="btn-logout" onclick="handleLogout()" title="Logout">⎋</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <div class="topbar">
+      <button class="btn btn-secondary btn-icon btn-sm" onclick="toggleSidebar()">☰</button>
+      <div class="logo-text">RFID Attendance</div>
+      <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+    </div>
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle" id="today-date">Loading…</p>
+      </div>
+      <div class="page-actions">
+        <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+        <a href="students.html" class="btn btn-primary">+ Add Student</a>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card blue">
+        <div class="stat-icon">👥</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-total">—</div>
+          <div class="stat-label">Total Students</div>
+        </div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-icon">✅</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-present">—</div>
+          <div class="stat-label">Present Today</div>
+        </div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-icon">❌</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-absent">—</div>
+          <div class="stat-label">Absent Today</div>
+        </div>
+      </div>
+      <div class="stat-card cyan">
+        <div class="stat-icon">📈</div>
+        <div class="stat-info">
+          <div class="stat-value" id="stat-rate">—%</div>
+          <div class="stat-label">Attendance Rate</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col mb-6">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><div class="dot"></div> Live Activity Feed</div>
+          <a href="attendance.html" class="btn btn-secondary btn-sm">View All</a>
+        </div>
+        <div id="activity-feed">
+          <div class="empty-state"><div class="icon">📭</div><p>No activity yet today</p></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📊 By Department</div>
+        </div>
+        <div class="card-body">
+          <div id="dept-stats">
+            <div class="empty-state"><div class="icon">📊</div><p>No data yet</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🕐 Recent Scans</div>
+        <a href="attendance.html" class="btn btn-secondary btn-sm">Full Records →</a>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Student Name</th>
+              <th>Student ID</th>
+              <th>Department</th>
+              <th>Time</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="recent-table">
+            <tr><td colspan="5" style="padding:30px; text-align:center; color:var(--text-3);">Waiting for scans…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+
+<script type="module">
+  import { onAuthChange, logoutAdmin, getAllStudents } from './firebase.js';
+  import { getFirestore, collection, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDSL2XxgPMD4eY-g6ykXvYZCsTW46jXHRQ",
+    authDomain: "rfid-attendence-f28aa.firebaseapp.com",
+    projectId: "rfid-attendence-f28aa",
+    storageBucket: "rfid-attendence-f28aa.firebasestorage.app",
+    messagingSenderId: "613381904772",
+    appId: "1:613381904772:web:8ca40f62428d9e1ece25d1"
+  };
+
+  const app  = initializeApp(firebaseConfig);
+  const db   = getFirestore(app);
+  const auth = getAuth(app);
+
+  let allStudents = [];
+
+  onAuthChange(user => {
+    if (!user) return window.location.href = 'login.html';
+    document.getElementById('user-email-display').textContent = user.email;
+    document.getElementById('user-initials').textContent = user.email[0].toUpperCase();
+    initDashboard();
+  });
+
+  async function initDashboard() {
+    const today = getTodayDate();
+    document.getElementById('today-date').textContent = formatDateDisplay(today);
+
+    allStudents = await getAllStudents();
+    document.getElementById('stat-total').textContent = allStudents.length;
+
+    // Simple listener — no orderBy so no index needed
+    const q = query(
+      collection(db, "attendence"),
+      where("date", "==", today)
+    );
+
+    onSnapshot(q, snap => {
+      const records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      updateStats(records);
+      updateActivityFeed(records);
+      updateRecentTable(records);
+      updateDeptStats(records);
+    });
+  }
+
+  function updateStats(records) {
+    const present = records.length;
+    const total   = allStudents.length;
+    const absent  = Math.max(0, total - present);
+    const rate    = total > 0 ? Math.round((present / total) * 100) : 0;
+    document.getElementById('stat-present').textContent = present;
+    document.getElementById('stat-absent').textContent  = absent;
+    document.getElementById('stat-rate').textContent    = rate + '%';
+  }
+
+  function updateActivityFeed(records) {
+    const feed = document.getElementById('activity-feed');
+    if (!records.length) {
+      feed.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>No attendance recorded yet today</p></div>`;
+      return;
+    }
+    feed.innerHTML = `<div class="activity-list">` +
+      records.slice(0, 8).map(r => `
+        <div class="activity-item">
+          <div class="activity-avatar">${(r.name || '?')[0].toUpperCase()}</div>
+          <div class="activity-info">
+            <div class="activity-name">${r.name || '—'}</div>
+            <div class="activity-meta">${r.studentId || ''} · ${r.department || ''}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            <span class="badge badge-green"><span class="dot"></span>Present</span>
+            <span class="activity-time">${r.time || ''}</span>
+          </div>
+        </div>`).join('') + `</div>`;
+  }
+
+  function updateRecentTable(records) {
+    const tbody = document.getElementById('recent-table');
+    if (!records.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="padding:30px;text-align:center;color:var(--text-3)">No records today</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = records.slice(0, 10).map(r => `
+      <tr>
+        <td class="name">${r.name || '—'}</td>
+        <td class="mono">${r.studentId || '—'}</td>
+        <td><span class="chip">${r.department || '—'}</span></td>
+        <td class="mono">${r.time || '—'}</td>
+        <td><span class="badge badge-green"><span class="dot"></span>Present</span></td>
+      </tr>`).join('');
+  }
+
+  function updateDeptStats(records) {
+    const el = document.getElementById('dept-stats');
+    if (!records.length) {
+      el.innerHTML = `<div class="empty-state"><div class="icon">📊</div><p>No data yet</p></div>`;
+      return;
+    }
+    const depts = {};
+    records.forEach(r => { depts[r.department] = (depts[r.department] || 0) + 1; });
+    const colors = ['#2563eb','#10b981','#06b6d4','#8b5cf6','#ef4444'];
+    el.innerHTML = Object.entries(depts).map(([dept, count], i) => {
+      const pct = Math.round((count / records.length) * 100);
+      return `
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
+            <span style="font-weight:600">${dept}</span>
+            <span style="color:var(--text-3);font-family:var(--mono)">${count} (${pct}%)</span>
+          </div>
+          <div style="height:6px;background:var(--navy-5);border-radius:99px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:${colors[i % colors.length]};border-radius:99px"></div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function getTodayDate() {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  function formatDateDisplay(date) {
+    return new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+  }
+
+  window.handleLogout = async function() {
+    await logoutAdmin();
+    window.location.href = 'login.html';
+  };
+
+  window.toggleSidebar = function() {
+    document.getElementById('sidebar').classList.toggle('open');
+  };
+</script>
+</body>
+</html>

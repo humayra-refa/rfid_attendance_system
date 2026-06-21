@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attendance Records — RFID Attendance System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app-layout">
+
+  <!-- ── SIDEBAR ─────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-badge">
+        <div class="logo-icon">📡</div>
+        <div>
+          <div class="logo-text">RFID Attend</div>
+          <div class="logo-sub">v1.0 · IoT System</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+      <a href="dashboard.html" class="nav-item"><span class="icon">🏠</span> Dashboard</a>
+      <a href="attendance.html" class="nav-item active"><span class="icon">📋</span> Attendance Records</a>
+      <a href="students.html" class="nav-item"><span class="icon">🎓</span> Students</a>
+      <div class="nav-section-label">Reports</div>
+      <a href="#" onclick="exportCSV()" class="nav-item"><span class="icon">📊</span> Export CSV</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="user-avatar" id="user-initials">?</div>
+        <div class="user-info">
+          <div class="user-name" id="user-email-display">Admin</div>
+          <div class="user-role">Administrator</div>
+        </div>
+        <button class="btn-logout" onclick="handleLogout()">⎋</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN CONTENT ───────────────────────────────────── -->
+  <main class="main-content">
+    <div class="topbar">
+      <button class="btn btn-secondary btn-icon btn-sm" onclick="toggleSidebar()">☰</button>
+      <div class="logo-text">Attendance</div>
+    </div>
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Attendance Records</h1>
+        <p class="page-subtitle" id="record-count">Loading records…</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-secondary" onclick="exportCSV()">⬇ Export CSV</button>
+        <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+      </div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="stats-grid mb-6" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr))">
+      <div class="stat-card green">
+        <div class="stat-icon">✅</div>
+        <div class="stat-info">
+          <div class="stat-value" id="s-present">—</div>
+          <div class="stat-label">Present</div>
+        </div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-icon">❌</div>
+        <div class="stat-info">
+          <div class="stat-value" id="s-absent">—</div>
+          <div class="stat-label">Absent</div>
+        </div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-icon">📅</div>
+        <div class="stat-info">
+          <div class="stat-value" id="s-date-filter">All</div>
+          <div class="stat-label">Date Filter</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table Card -->
+    <div class="card">
+      <!-- Filters -->
+      <div class="filters-row">
+        <div class="search-bar" style="flex:1; min-width:200px">
+          <span class="icon">🔍</span>
+          <input type="text" id="search-input" placeholder="Search by name, ID, UID…" oninput="applyFilters()">
+        </div>
+        <input type="date" id="date-filter" class="form-control" style="width:160px" onchange="applyFilters()">
+        <select id="dept-filter" class="form-control" style="width:180px" onchange="applyFilters()">
+          <option value="">All Departments</option>
+          <option>Engineering</option>
+          <option>Business</option>
+          <option>Science</option>
+          <option>Arts</option>
+          <option>Medical</option>
+        </select>
+        <select id="status-filter" class="form-control" style="width:130px" onchange="applyFilters()">
+          <option value="">All Status</option>
+          <option value="Present">Present</option>
+          <option value="Absent">Absent</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="clearFilters()">✕ Clear</button>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Student Name</th>
+              <th>Student ID</th>
+              <th>UID (RFID)</th>
+              <th>Department</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="att-table-body">
+            <tr><td colspan="8" style="text-align:center; padding:40px; color:var(--text-muted)">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-top:1px solid var(--border)">
+        <span id="page-info" style="font-size:13px; color:var(--text-muted); font-family:var(--font-mono)">—</span>
+        <div style="display:flex; gap:8px">
+          <button class="btn btn-secondary btn-sm" id="prev-btn" onclick="changePage(-1)" disabled>← Prev</button>
+          <button class="btn btn-secondary btn-sm" id="next-btn" onclick="changePage(1)">Next →</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+
+<script type="module">
+  import { onAuthChange, logoutAdmin, listenAllAttendance } from './firebase.js';
+
+  let allRecords = [];
+  let filteredRecords = [];
+  let currentPage = 1;
+  const PAGE_SIZE = 15;
+
+  onAuthChange(user => {
+    if (!user) return window.location.href = 'login.html';
+    document.getElementById('user-email-display').textContent = user.email;
+    document.getElementById('user-initials').textContent = user.email[0].toUpperCase();
+    init();
+  });
+
+  function init() {
+    // Set today's date in filter by default
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('date-filter').value = today;
+
+    listenAllAttendance(records => {
+      allRecords = records;
+      applyFilters();
+    });
+  }
+
+  window.applyFilters = function() {
+    const search = document.getElementById('search-input').value.toLowerCase();
+    const date   = document.getElementById('date-filter').value;
+    const dept   = document.getElementById('dept-filter').value;
+    const status = document.getElementById('status-filter').value;
+
+    filteredRecords = allRecords.filter(r => {
+      const matchSearch = !search || (r.name || '').toLowerCase().includes(search)
+        || (r.studentId || '').toLowerCase().includes(search)
+        || (r.uid || '').toLowerCase().includes(search);
+      const matchDate   = !date   || r.date   === date;
+      const matchDept   = !dept   || r.department === dept;
+      const matchStatus = !status || r.status === status;
+      return matchSearch && matchDate && matchDept && matchStatus;
+    });
+
+    currentPage = 1;
+    document.getElementById('s-date-filter').textContent = date || 'All';
+
+    const present = filteredRecords.filter(r => r.status === 'Present').length;
+    const absent  = filteredRecords.filter(r => r.status === 'Absent').length;
+    document.getElementById('s-present').textContent = present;
+    document.getElementById('s-absent').textContent  = absent;
+
+    renderTable();
+  };
+
+  function renderTable() {
+    const tbody = document.getElementById('att-table-body');
+    const total = filteredRecords.length;
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const end   = Math.min(start + PAGE_SIZE, total);
+    const page  = filteredRecords.slice(start, end);
+
+    document.getElementById('record-count').textContent = `${total} records found`;
+    document.getElementById('page-info').textContent =
+      total ? `Showing ${start + 1}–${end} of ${total}` : 'No records';
+
+    document.getElementById('prev-btn').disabled = currentPage === 1;
+    document.getElementById('next-btn').disabled = end >= total;
+
+    if (!page.length) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:40px; color:var(--text-muted)">No records match your filters</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = page.map((r, i) => `
+      <tr>
+        <td class="mono" style="color:var(--text-muted)">${start + i + 1}</td>
+        <td class="name">${r.name || '—'}</td>
+        <td class="mono">${r.studentId || '—'}</td>
+        <td class="mono" style="color:var(--accent)">${r.uid || '—'}</td>
+        <td><span class="chip">${r.department || '—'}</span></td>
+        <td class="mono">${r.date || '—'}</td>
+        <td class="mono">${r.time || '—'}</td>
+        <td><span class="badge ${r.status === 'Present' ? 'badge-green' : 'badge-red'}">
+          <span class="dot"></span>${r.status || '—'}
+        </span></td>
+      </tr>
+    `).join('');
+  }
+
+  window.changePage = function(dir) {
+    currentPage += dir;
+    renderTable();
+    document.querySelector('.main-content').scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  window.clearFilters = function() {
+    document.getElementById('search-input').value = '';
+    document.getElementById('date-filter').value = '';
+    document.getElementById('dept-filter').value = '';
+    document.getElementById('status-filter').value = '';
+    applyFilters();
+  };
+
+  window.exportCSV = function() {
+    if (!filteredRecords.length) { showToast('No records to export', 'error'); return; }
+
+    const headers = ['#','Name','Student ID','UID','Department','Date','Time','Status'];
+    const rows = filteredRecords.map((r, i) =>
+      [i+1, r.name, r.studentId, r.uid, r.department, r.date, r.time, r.status]
+        .map(v => `"${v || ''}"`)
+        .join(',')
+    );
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `attendance_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('CSV exported successfully!', 'success');
+  };
+
+  window.handleLogout = async function() {
+    const { logoutAdmin } = await import('./firebase.js');
+    await logoutAdmin();
+    window.location.href = 'login.html';
+  };
+
+  window.toggleSidebar = function() {
+    document.getElementById('sidebar').classList.toggle('open');
+  };
+
+  function showToast(msg, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `<span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span> ${msg}`;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
+  }
+</script>
+</body>
+</html>

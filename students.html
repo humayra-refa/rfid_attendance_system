@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Students — RFID Attendance System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app-layout">
+
+  <!-- ── SIDEBAR ───────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-logo">
+      <div class="logo-badge">
+        <div class="logo-icon">📡</div>
+        <div>
+          <div class="logo-text">RFID Attend</div>
+          <div class="logo-sub">v1.0 · IoT System</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Main</div>
+
+      <a href="dashboard.html" class="nav-item">
+        <span class="icon">🏠</span> Dashboard
+      </a>
+
+      <a href="attendance.html" class="nav-item">
+        <span class="icon">📋</span> Attendance Records
+      </a>
+
+      <a href="students.html" class="nav-item active">
+        <span class="icon">🎓</span> Students
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="user-avatar" id="user-initials">?</div>
+
+        <div class="user-info">
+          <div class="user-name" id="user-email-display">
+            Admin
+          </div>
+          <div class="user-role">
+            Administrator
+          </div>
+        </div>
+
+        <button class="btn-logout" onclick="handleLogout()">
+          ⎋
+        </button>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── MAIN CONTENT ─────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <button
+        class="btn btn-secondary btn-icon btn-sm"
+        onclick="toggleSidebar()"
+      >
+        ☰
+      </button>
+
+      <div class="logo-text">
+        Students
+      </div>
+    </div>
+
+    <!-- Header -->
+    <div class="page-header">
+
+      <div>
+        <h1 class="page-title">
+          Students
+        </h1>
+
+        <p class="page-subtitle" id="student-count">
+          Loading students...
+        </p>
+      </div>
+
+      <div class="page-actions">
+        <button
+          class="btn btn-primary"
+          onclick="openModal()"
+        >
+          + Register Student
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Search & Filter -->
+    <div class="card mb-6">
+
+      <div class="filters-row">
+
+        <div
+          class="search-bar"
+          style="flex:1; min-width:220px"
+        >
+          <span class="icon">🔍</span>
+
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Search by name, ID, UID..."
+            oninput="filterStudents()"
+          />
+        </div>
+
+        <select
+          id="dept-filter"
+          class="form-control"
+          style="width:180px"
+          onchange="filterStudents()"
+        >
+          <option value="">All Departments</option>
+          <option>Engineering</option>
+          <option>Business</option>
+          <option>Science</option>
+          <option>Arts</option>
+          <option>Medical</option>
+        </select>
+
+      </div>
+
+    </div>
+
+    <!-- Students Grid -->
+    <div
+      id="students-grid"
+      style="
+        display:grid;
+        grid-template-columns:
+        repeat(auto-fill, minmax(280px, 1fr));
+        gap:16px;
+      "
+    >
+      <div
+        class="card empty-state"
+        style="grid-column:1/-1; padding:48px"
+      >
+        <div class="icon">🔄</div>
+        <p>Loading students...</p>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── MODAL ───────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-overlay">
+
+  <div class="modal">
+
+    <div class="modal-header">
+
+      <div class="modal-title">
+        🎓 Register Student
+      </div>
+
+      <button
+        class="modal-close"
+        onclick="closeModal()"
+      >
+        ✕
+      </button>
+
+    </div>
+
+    <div class="modal-body">
+
+      <div
+        id="modal-error"
+        style="
+          display:none;
+          color:var(--red);
+          font-size:13px;
+          margin-bottom:14px;
+          padding:10px 14px;
+          background:var(--red-dim);
+          border-radius:8px;
+        "
+      ></div>
+
+      <!-- Name -->
+      <div class="form-group">
+        <label class="form-label">
+          Full Name *
+        </label>
+
+        <input
+          type="text"
+          id="f-name"
+          class="form-control"
+          placeholder="e.g. Rahul Ahmed"
+        />
+      </div>
+
+      <!-- Student ID + UID -->
+      <div class="two-col">
+
+        <div class="form-group">
+          <label class="form-label">
+            Student ID *
+          </label>
+
+          <input
+            type="text"
+            id="f-sid"
+            class="form-control"
+            placeholder="221-15-1234"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            RFID UID *
+          </label>
+
+          <input
+            type="text"
+            id="f-uid"
+            class="form-control"
+            placeholder="A1B2C3D4"
+            style="font-family:var(--font-mono)"
+          />
+        </div>
+
+      </div>
+
+      <!-- Department -->
+      <div class="form-group">
+
+        <label class="form-label">
+          Department *
+        </label>
+
+        <select
+          id="f-dept"
+          class="form-control"
+        >
+          <option value="">
+            Select department
+          </option>
+
+          <option>Engineering</option>
+          <option>Business</option>
+          <option>Science</option>
+          <option>Arts</option>
+          <option>Medical</option>
+        </select>
+
+      </div>
+
+      <!-- Email -->
+      <div class="form-group">
+
+        <label class="form-label">
+          Email
+        </label>
+
+        <input
+          type="email"
+          id="f-email"
+          class="form-control"
+          placeholder="student@university.edu"
+        />
+
+      </div>
+
+      <!-- Phone -->
+      <div class="form-group">
+
+        <label class="form-label">
+          Phone
+        </label>
+
+        <input
+          type="text"
+          id="f-phone"
+          class="form-control"
+          placeholder="01XXXXXXXXX"
+        />
+
+      </div>
+
+      <!-- Info -->
+      <div
+        style="
+          background:var(--bg-elevated);
+          border:1px solid var(--border);
+          border-radius:var(--radius-sm);
+          padding:12px;
+          font-size:12px;
+          color:var(--text-muted);
+          font-family:var(--font-mono);
+        "
+      >
+        💡 RFID UID = ESP32 serial monitor এ card scan করলে
+        যে UID দেখাবে সেটাই এখানে দিতে হবে।
+      </div>
+
+    </div>
+
+    <div class="modal-footer">
+
+      <button
+        class="btn btn-secondary"
+        onclick="closeModal()"
+      >
+        Cancel
+      </button>
+
+      <button
+        class="btn btn-primary"
+        onclick="registerStudent()"
+      >
+        Register Student
+      </button>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div
+  id="toast-container"
+  class="toast-container"
+></div>
+
+<!-- ── SCRIPT ──────────────────────────────────────────── -->
+<script type="module">
+
+import {
+  onAuthChange,
+  logoutAdmin,
+  addStudent,
+  listenStudents
+} from './firebase.js';
+
+let allStudents = [];
+let filtered    = [];
+
+
+// ── AUTH GUARD ──────────────────────────────────────────
+onAuthChange(user => {
+
+  if (!user) {
+    window.location.href = 'login.html';
+    return;
+  }
+
+  document.getElementById('user-email-display')
+    .textContent = user.email;
+
+  document.getElementById('user-initials')
+    .textContent = user.email[0].toUpperCase();
+
+  loadStudents();
+});
+
+
+// ── REALTIME STUDENTS ───────────────────────────────────
+function loadStudents() {
+
+  listenStudents(students => {
+
+    allStudents = students;
+    filtered = [...students];
+
+    renderStudents(filtered);
+
+    document.getElementById('student-count')
+      .textContent =
+      `${allStudents.length} students registered`;
+
+  });
+}
+
+
+// ── RENDER ──────────────────────────────────────────────
+function renderStudents(students) {
+
+  const grid = document.getElementById('students-grid');
+
+  if (!students.length) {
+
+    grid.innerHTML = `
+      <div
+        class="card empty-state"
+        style="grid-column:1/-1; padding:48px"
+      >
+        <div class="icon">🎓</div>
+        <p>No students found</p>
+      </div>
+    `;
+
+    return;
+  }
+
+  const deptColors = {
+    Engineering: 'amber',
+    Business: 'blue',
+    Science: 'green',
+    Arts: 'purple',
+    Medical: 'red'
+  };
+
+  grid.innerHTML = students.map(student => {
+
+    const color =
+      deptColors[student.department] || 'amber';
+
+    return `
+      <div
+        class="card"
+        style="padding:0; overflow:hidden"
+      >
+
+        <div
+          style="
+            height:4px;
+            background:
+            var(--${color === 'amber'
+              ? 'accent'
+              : color});
+          "
+        ></div>
+
+        <div style="padding:18px">
+
+          <!-- Header -->
+          <div
+            style="
+              display:flex;
+              align-items:center;
+              gap:12px;
+              margin-bottom:14px;
+            "
+          >
+
+            <div
+              style="
+                width:44px;
+                height:44px;
+                border-radius:50%;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                font-size:18px;
+                font-weight:700;
+
+                background:
+                var(--${color}-dim,
+                var(--accent-dim));
+
+                color:
+                var(--${color},
+                var(--accent));
+              "
+            >
+              ${(student.name || '?')[0].toUpperCase()}
+            </div>
+
+            <div>
+              <div
+                style="
+                  font-weight:700;
+                  font-size:14px;
+                "
+              >
+                ${student.name}
+              </div>
+
+              <div
+                style="
+                  font-size:12px;
+                  color:var(--text-muted);
+                  font-family:var(--font-mono);
+                "
+              >
+                ${student.studentId}
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Info -->
+          <div
+            style="
+              display:flex;
+              flex-direction:column;
+              gap:6px;
+              font-size:12.5px;
+            "
+          >
+
+            <div
+              style="
+                display:flex;
+                justify-content:space-between;
+              "
+            >
+              <span style="color:var(--text-muted)">
+                RFID UID
+              </span>
+
+              <span
+                style="
+                  font-family:var(--font-mono);
+                  color:var(--accent);
+                "
+              >
+                ${student.uid}
+              </span>
+            </div>
+
+            <div
+              style="
+                display:flex;
+                justify-content:space-between;
+              "
+            >
+              <span style="color:var(--text-muted)">
+                Department
+              </span>
+
+              <span class="chip">
+                ${student.department}
+              </span>
+            </div>
+
+            ${
+              student.email
+              ?
+              `
+              <div
+                style="
+                  display:flex;
+                  justify-content:space-between;
+                "
+              >
+                <span style="color:var(--text-muted)">
+                  Email
+                </span>
+
+                <span style="color:var(--text-secondary)">
+                  ${student.email}
+                </span>
+              </div>
+              `
+              : ''
+            }
+
+            ${
+              student.phone
+              ?
+              `
+              <div
+                style="
+                  display:flex;
+                  justify-content:space-between;
+                "
+              >
+                <span style="color:var(--text-muted)">
+                  Phone
+                </span>
+
+                <span style="color:var(--text-secondary)">
+                  ${student.phone}
+                </span>
+              </div>
+              `
+              : ''
+            }
+
+          </div>
+
+        </div>
+
+      </div>
+    `;
+
+  }).join('');
+}
+
+
+// ── FILTER ──────────────────────────────────────────────
+window.filterStudents = function() {
+
+  const search =
+    document.getElementById('search-input')
+    .value
+    .toLowerCase();
+
+  const dept =
+    document.getElementById('dept-filter')
+    .value;
+
+  filtered = allStudents.filter(student => {
+
+    const matchSearch =
+      !search ||
+
+      (student.name || '')
+      .toLowerCase()
+      .includes(search)
+
+      ||
+
+      (student.studentId || '')
+      .toLowerCase()
+      .includes(search)
+
+      ||
+
+      (student.uid || '')
+      .toLowerCase()
+      .includes(search);
+
+    const matchDept =
+      !dept ||
+      student.department === dept;
+
+    return matchSearch && matchDept;
+  });
+
+  renderStudents(filtered);
+
+  document.getElementById('student-count')
+    .textContent =
+    `${filtered.length} of ${allStudents.length} students`;
+
+};
+
+
+// ── MODAL ───────────────────────────────────────────────
+window.openModal = function() {
+  document.getElementById('modal-overlay')
+    .classList.add('open');
+};
+
+window.closeModal = function() {
+
+  document.getElementById('modal-overlay')
+    .classList.remove('open');
+
+  clearForm();
+};
+
+
+// ── CLEAR FORM ──────────────────────────────────────────
+function clearForm() {
+
+  [
+    'f-name',
+    'f-sid',
+    'f-uid',
+    'f-dept',
+    'f-email',
+    'f-phone'
+  ].forEach(id => {
+
+    document.getElementById(id).value = '';
+
+  });
+
+  document.getElementById('modal-error')
+    .style.display = 'none';
+}
+
+
+// ── REGISTER STUDENT ───────────────────────────────────
+window.registerStudent = async function() {
+
+  const name =
+    document.getElementById('f-name')
+    .value
+    .trim();
+
+  const sid =
+    document.getElementById('f-sid')
+    .value
+    .trim();
+
+  const uid =
+    document.getElementById('f-uid')
+    .value
+    .trim()
+    .toUpperCase();
+
+  const dept =
+    document.getElementById('f-dept')
+    .value;
+
+  const email =
+    document.getElementById('f-email')
+    .value
+    .trim();
+
+  const phone =
+    document.getElementById('f-phone')
+    .value
+    .trim();
+
+  const errEl =
+    document.getElementById('modal-error');
+
+
+  // Validation
+  if (!name || !sid || !uid || !dept) {
+
+    errEl.textContent =
+      'Please fill all required fields.';
+
+    errEl.style.display = 'block';
+
+    return;
+  }
+
+
+  // Duplicate UID Check
+  const exists = allStudents.find(
+    s => s.uid?.toUpperCase() === uid
+  );
+
+  if (exists) {
+
+    errEl.textContent =
+      `UID "${uid}" already exists.`;
+
+    errEl.style.display = 'block';
+
+    return;
+  }
+
+
+  // Save
+  try {
+
+    await addStudent({
+      name,
+      studentId: sid,
+      uid,
+      department: dept,
+      email,
+      phone
+    });
+
+    closeModal();
+
+    showToast(
+      `${name} registered successfully!`,
+      'success'
+    );
+
+  } catch(err) {
+
+    errEl.textContent =
+      'Failed to register student';
+
+    errEl.style.display = 'block';
+
+    console.error(err);
+  }
+
+};
+
+
+// ── LOGOUT ──────────────────────────────────────────────
+window.handleLogout = async function() {
+
+  await logoutAdmin();
+
+  window.location.href = 'login.html';
+};
+
+
+// ── SIDEBAR ─────────────────────────────────────────────
+window.toggleSidebar = function() {
+
+  document.getElementById('sidebar')
+    .classList.toggle('open');
+};
+
+
+// ── CLOSE MODAL ON OUTSIDE CLICK ───────────────────────
+document.getElementById('modal-overlay')
+.addEventListener('click', function(e) {
+
+  if (e.target === this) {
+    closeModal();
+  }
+});
+
+
+// ── TOAST ───────────────────────────────────────────────
+function showToast(msg, type='info') {
+
+  const container =
+    document.getElementById('toast-container');
+
+  const toast =
+    document.createElement('div');
+
+  toast.className = `toast ${type}`;
+
+  toast.innerHTML = `
+    <span>
+      ${type === 'success' ? '✅' : '❌'}
+    </span>
+    ${msg}
+  `;
+
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.remove();
+  }, 3500);
+}
+
+</script>
+</body>
+</html>
